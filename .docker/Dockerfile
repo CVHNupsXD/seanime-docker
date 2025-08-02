@@ -1,53 +1,43 @@
 # syntax=docker/dockerfile:1.4
 
-# Stage 1: Node.js Builder
-FROM --platform=$BUILDPLATFORM node:latest AS node-builder
-
-# Set build args for cross-platform compatibility
-ARG TARGETOS
-ARG TARGETARCH
+FROM node:latest AS node-builder
 
 COPY ./seanime-web /tmp/build
-
 WORKDIR /tmp/build
-
 RUN npm ci
 RUN npm run build
 
-# Stage 2: Go Builder
-FROM --platform=$BUILDPLATFORM golang:latest AS go-builder
-
-ARG TARGETOS
-ARG TARGETARCH
-ARG TARGETVARIANT
+FROM golang:latest AS go-builder
 
 COPY . /tmp/build
 COPY --from=node-builder /tmp/build/out /tmp/build/web
-
 WORKDIR /tmp/build
 
-# Handle armv7 (32-bit ARM) builds specifically
-RUN if [ "$TARGETARCH" = "arm" ] && [ "$TARGETVARIANT" = "v7" ]; then \
-    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH GOARM=7 go build -o seanime -trimpath -ldflags="-s -w"; \
-    else \
-    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o seanime -trimpath -ldflags="-s -w"; \
-    fi
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o seanime -trimpath -ldflags="-s -w"
 
-# Stage 3: Final Stage
-FROM --platform=$TARGETPLATFORM alpine:latest
+FROM debian:bookworm-slim
 
-# Install necessary packages
-RUN apk add --no-cache \
-    ffmpeg
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        curl \
+        gnupg \
+        ca-certificates && \
+    curl -fsSL https://repo.jellyfin.org/ubuntu/jellyfin_team.gpg.key | gpg --dearmor -o /usr/share/keyrings/jellyfin.gpg && \
+    echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/jellyfin.gpg] https://repo.jellyfin.org/debian bookworm main' > /etc/apt/sources.list.d/jellyfin.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        intel-media-va-driver \
+        intel-opencl-icd \
+        jellyfin-ffmpeg7 && \
+    mkdir -p /root/.config/Seanime && \
+    rm -rf /tmp/* /var/lib/apt/lists/* /var/tmp/*
+    
+ENV PATH="/usr/lib/jellyfin-ffmpeg/:$PATH"
 
-# Copy the Go-built application from the previous stage
 COPY --from=go-builder /tmp/build/seanime /app/
 
-# Work in /app directory
 WORKDIR /app
 
-# Expose port 43211
 EXPOSE 43211
 
-# Command to run the application
 CMD ["/app/seanime"]
