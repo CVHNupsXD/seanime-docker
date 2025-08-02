@@ -5,11 +5,11 @@ on:
   repository_dispatch:
     types: [seanime_release]
   schedule:
-    - cron: '0 0 * * *'  # Run daily to check for new releases
+    - cron: '0 0 * * *' # Run daily to check for new releases
 
 jobs:
   check_and_build:
-    name: Check for new release and build multiarch Docker image
+    name: Check for new release and build Docker image
     runs-on: ubuntu-latest
     permissions:
       packages: write
@@ -23,6 +23,10 @@ jobs:
         id: seanime_release
         run: |
           LATEST_RELEASE=$(curl -s https://api.github.com/repos/5rahim/seanime/releases/latest | jq -r .tag_name)
+          if [ -z "$LATEST_RELEASE" ] || [ "$LATEST_RELEASE" = "null" ]; then
+            echo "Error: Failed to fetch latest release or release is null"
+            exit 1
+          fi
           echo "LATEST_RELEASE=${LATEST_RELEASE}" >> $GITHUB_OUTPUT
           echo "Latest 5rahim/seanime release: ${LATEST_RELEASE}"
 
@@ -61,19 +65,19 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: umagistr/seanime
+          images: cvhnups/seanime
           tags: |
             type=raw,value=${{ steps.seanime_release.outputs.LATEST_RELEASE }}
             type=raw,value=latest
 
-      - name: Build and push multiarch Docker image
+      - name: Build and push Docker image
         if: steps.check_build.outputs.BUILD_NEEDED == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./.docker/Dockerfile
           push: true
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
