@@ -29,7 +29,6 @@ RUN apt-get update && \
         intel-media-va-driver \
         intel-opencl-icd \
         jellyfin-ffmpeg7 && \
-    mkdir -p /root/.config/Seanime && \
     rm -rf /tmp/* /var/lib/apt/lists/* /var/tmp/*
     
 ENV PATH="/usr/lib/jellyfin-ffmpeg/:$PATH"
