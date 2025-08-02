@@ -24,12 +24,17 @@ RUN apt-get update && \
         ca-certificates && \
     curl -fsSL https://repo.jellyfin.org/ubuntu/jellyfin_team.gpg.key | gpg --dearmor -o /usr/share/keyrings/jellyfin.gpg && \
     echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/jellyfin.gpg] https://repo.jellyfin.org/debian bookworm main' > /etc/apt/sources.list.d/jellyfin.list && \
+    # Add non-free and non-free-firmware to Debian sources
+    echo 'deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware' > /etc/apt/sources.list && \
+    echo 'deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware' >> /etc/apt/sources.list && \
+    echo 'deb http://deb.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware' >> /etc/apt/sources.list && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        intel-media-va-driver \
+        vainfo \
+        intel-media-va-driver-non-free \
         intel-opencl-icd \
         jellyfin-ffmpeg7 && \
-    rm -rf /tmp/* /var/lib/apt/lists/* /var/tmp/*
+    rm -rf /var/lib/apt/lists/*
     
 ENV PATH="/usr/lib/jellyfin-ffmpeg/:$PATH"
 
